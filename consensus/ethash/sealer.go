@@ -348,7 +348,7 @@ func (s *remoteSealer) makeWork(block *types.Block) {
 	s.currentWork[0] = hash.Hex()
 	s.currentWork[1] = common.BytesToHash(SeedHash(block.NumberU64())).Hex()
 	s.currentWork[2] = common.BytesToHash(new(big.Int).Div(two256, block.Difficulty()).Bytes()).Hex()
-	s.currentWork[3] = hexutil.EncodeBig(block.Number())
+	s.currentWork[3] = hexutil.EncodeBig(new(big.Int).Add(block.Number(), big.NewInt(mineEpochOffset*epochLength)))
 
 	// Trace the seal work fetched by remote sealer.
 	s.currentBlock = block

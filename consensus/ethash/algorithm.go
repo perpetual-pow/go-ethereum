@@ -46,14 +46,16 @@ const (
 	datasetParents     = 256     // Number of parents of each dataset element
 	cacheRounds        = 3       // Number of rounds in cache production
 	loopAccesses       = 64      // Number of accesses in hashimoto loop
+
+	mineEpochOffset = 128
 )
 
 // cacheSize returns the size of the ethash verification cache that belongs to a certain
 // block number.
 func cacheSize(block uint64) uint64 {
 	epoch := int(block / epochLength)
-	if epoch < maxEpoch {
-		return cacheSizes[epoch]
+	if epoch+mineEpochOffset < maxEpoch {
+		return cacheSizes[epoch+mineEpochOffset]
 	}
 	return calcCacheSize(epoch)
 }
@@ -62,7 +64,7 @@ func cacheSize(block uint64) uint64 {
 // however, we always take the highest prime below the linearly growing threshold in order
 // to reduce the risk of accidental regularities leading to cyclic behavior.
 func calcCacheSize(epoch int) uint64 {
-	size := cacheInitBytes + cacheGrowthBytes*uint64(epoch) - hashBytes
+	size := cacheInitBytes + cacheGrowthBytes*uint64(epoch) - hashBytes + cacheGrowthBytes*mineEpochOffset
 	for !new(big.Int).SetUint64(size / hashBytes).ProbablyPrime(1) { // Always accurate for n < 2^64
 		size -= 2 * hashBytes
 	}
@@ -73,8 +75,8 @@ func calcCacheSize(epoch int) uint64 {
 // block number.
 func datasetSize(block uint64) uint64 {
 	epoch := int(block / epochLength)
-	if epoch < maxEpoch {
-		return datasetSizes[epoch]
+	if epoch+mineEpochOffset < maxEpoch {
+		return datasetSizes[epoch+mineEpochOffset]
 	}
 	return calcDatasetSize(epoch)
 }
@@ -83,7 +85,7 @@ func datasetSize(block uint64) uint64 {
 // however, we always take the highest prime below the linearly growing threshold in order
 // to reduce the risk of accidental regularities leading to cyclic behavior.
 func calcDatasetSize(epoch int) uint64 {
-	size := datasetInitBytes + datasetGrowthBytes*uint64(epoch) - mixBytes
+	size := datasetInitBytes + datasetGrowthBytes*uint64(epoch) - mixBytes + datasetGrowthBytes*mineEpochOffset
 	for !new(big.Int).SetUint64(size / mixBytes).ProbablyPrime(1) { // Always accurate for n < 2^64
 		size -= 2 * mixBytes
 	}
@@ -120,11 +122,8 @@ func makeHasher(h hash.Hash) hasher {
 // dataset.
 func seedHash(block uint64) []byte {
 	seed := make([]byte, 32)
-	if block < epochLength {
-		return seed
-	}
 	keccak256 := makeHasher(sha3.NewLegacyKeccak256())
-	for i := 0; i < int(block/epochLength); i++ {
+	for i := -mineEpochOffset; i < int(block/epochLength); i++ {
 		keccak256(seed, seed)
 	}
 	return seed
